@@ -1,0 +1,656 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   alloc.c                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/18 01:34:23 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/07 04:27:35 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+void	*philo_malloc(size_t size)
+{
+	void	*ret;
+
+	ret = malloc(size);
+	if (!ret)
+		error_exit("No allocation made");
+	return (ret);
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   get_set.c                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/19 04:18:14 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 00:24:36 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+void	set_b(t_mtx *mutex, bool *dest, bool value)
+{
+	if (pthread_mutex_lock(mutex) != 0)
+		error_exit("Failed to lock mutex in set_b");
+	*dest = value;
+	if (pthread_mutex_unlock(mutex) != 0)
+		error_exit("Failed to unlock mutex in set_b");
+}
+
+bool	get_b(t_mtx *mutex, bool *value)
+{
+	bool	ret;
+
+	if (pthread_mutex_lock(mutex) != 0)
+		error_exit("Failed to lock mutex in get_b");
+	ret = *value;
+	if (pthread_mutex_unlock(mutex) != 0)
+		error_exit("Failed to unlock mutex in get_b");
+	return (ret);
+}
+
+void	set_l(t_mtx *mutex, long *dest, long value)
+{
+	if (pthread_mutex_lock(mutex) != 0)
+		error_exit("Failed to lock mutex in set_l");
+	*dest = value;
+	if (pthread_mutex_unlock(mutex) != 0)
+		error_exit("Failed to unlock mutex in set_l");
+}
+
+long	get_l(t_mtx *mutex, long *value)
+{
+	long	ret;
+
+	if (pthread_mutex_lock(mutex) != 0)
+		error_exit("Failed to lock mutex in get_l");
+	ret = *value;
+	if (pthread_mutex_unlock(mutex) != 0)
+		error_exit("Failed to unlock mutex in get_l");
+	return (ret);
+}
+
+bool	end_sim(t_table *table)
+{
+	return (get_b(&table->table_mtx, &table->sim_end));
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   init.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/18 01:33:08 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:33:58 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+static void	assign_forks(t_philo *philo, t_fork *forks, int ph_pos)
+{
+	// if (philo->id % 2 == 0)
+	// {
+	philo->first_fork = &forks[ph_pos];
+	philo->second_fork = &forks[(ph_pos + 1) % philo->table->ph_num];
+	// }
+	// else
+	// {
+	// 	philo->first_fork = &forks[(ph_pos + 1) % philo->table->ph_num];
+	// 	philo->second_fork = &forks[ph_pos];
+	// }
+}
+
+static void	philo_init(t_table *table)
+{
+	int		i;
+	t_philo	*philo;
+
+	i = 0;
+	while (i < table->ph_num)
+	{
+		philo = table->philos + i;
+		philo->id = i + 1;
+		philo->full = false;
+		philo->meal_count = 0;
+		philo->lmeal_t = 0;
+		philo->table = table;
+		if (pthread_mutex_init(&philo->p_mx, NULL) != 0)
+			error_exit("Failed to initialize philosopher mutex");
+		assign_forks(philo, table->forks, i);
+		i++;
+	}
+}
+
+void	init(t_table *table)
+{
+	int	i;
+
+	i = 0;
+	table->sim_end = false;
+	table->th_ready = false;
+	table->n_th_running = 0;
+	table->philos = philo_malloc(sizeof(t_philo) * table->ph_num);
+	if (pthread_mutex_init(&table->table_mtx, NULL) != 0)
+		error_exit("Failed to initialize table mutex");
+	if (pthread_mutex_init(&table->write_mtx, NULL) != 0)
+		error_exit("Failed to initialize write mutex");
+	table->forks = philo_malloc(sizeof(t_fork) * table->ph_num);
+	while (i < table->ph_num)
+	{
+		if (pthread_mutex_init(&table->forks[i].fork, NULL) != 0)
+			error_exit("Failed to initialize fork mutex");
+		i++;
+	}
+	philo_init(table);
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   input.c                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/17 23:24:05 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 00:19:40 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+static int	ft_isspace(int c)
+{
+	if ((c >= 9 && c <= 13) || c == 32)
+		return (1);
+	return (0);
+}
+
+static const char	*validation(const char *str)
+{
+	int			len;
+	const char	*number;
+
+	len = 0;
+	while (ft_isspace((int)*str))
+		str++;
+	if (*str == '+')
+		str++;
+	else if (*str == '-')
+		error_exit("Only postive values are accepted");
+	if (!(*str >= 48 && *str <= 57))
+		error_exit("Only numerical input is accepted");
+	number = str;
+	while (*str >= 48 && *str++ <= 57)
+		len++;
+	if (len > 10)
+		error_exit("Numerical value unaccepted");
+	return (number);
+}
+
+static long	ft_atol(const char *str)
+{
+	long	num;
+
+	num = 0;
+	str = validation(str);
+	while (*str >= 48 && *str <= 57)
+		num = (num * 10) + (*str++ - 48);
+	if (num > INT_MAX)
+		error_exit("Numerical value unaccepted");
+	return (num);
+}
+
+void	input_parse(t_table *table, char **av)
+{
+	table->ph_num = ft_atol(av[1]);
+	table->die_t = ft_atol(av[2]) * 1000;
+	table->eat_t = ft_atol(av[3]) * 1000;
+	table->sleep_t = ft_atol(av[4]) * 1000;
+	if (table->die_t < 60000 || table->eat_t < 60000
+		|| table->sleep_t < 60000)
+		error_exit("Input time less than 60ms");
+	if (av[5])
+		table->meal_limit = ft_atol(av[5]);
+	else
+		table->meal_limit = -1;
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   main.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/17 23:14:35 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/07 04:31:07 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+static void	terminate_philo(t_table *table)
+{
+	int	i;
+
+	i = 0;
+	while (i < table->ph_num)
+	{
+		if (pthread_mutex_destroy(&table->forks[i].fork) != 0)
+			error_exit("Failed to destroy fork mutex");
+		if (pthread_mutex_destroy(&table->philos[i].p_mx) != 0)
+			error_exit("Failed to destroy philosopher mutex");
+		i++;
+	}
+	if (pthread_mutex_destroy(&table->table_mtx) != 0)
+		error_exit("Failed to destroy table mutex");
+	if (pthread_mutex_destroy(&table->write_mtx) != 0)
+		error_exit("Failed to destroy write mutex");
+	free(table->philos);
+	free(table->forks);
+}
+
+int	main(int ac, char **av)
+{
+	t_table	table;
+
+	if (ac == 5 || ac == 6)
+	{
+		input_parse(&table, av);
+		init(&table);
+		start(&table);
+		terminate_philo(&table);
+	}
+	else
+		error_exit("Wrong input:\nUsage: ./philo 6 800 300 300 [6]");
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   ph_manage.c                                        :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/27 05:17:30 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:30:17 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+static void	check_meal_limit(t_table *table, int count)
+{
+	if (table->meal_limit > 0 && count == table->ph_num)
+		set_b(&table->table_mtx, &table->sim_end, true);
+	return ;
+}
+
+static void	philo_die(t_table *table, t_philo *philo)
+{
+	set_b(&table->table_mtx, &table->sim_end, true);
+	print_status(DIED, philo);
+	return ;
+}
+
+static bool kill_cond(t_table *table, t_philo *philo)
+{
+	long now = gettime();
+	long last_meal = get_l(&philo->p_mx, &philo->lmeal_t);
+	if (last_meal == 0)
+		return false;
+	return (!get_b(&philo->p_mx, &philo->full) &&
+			(now - last_meal >= table->die_t / 1000));
+}
+
+void	*manage_dinner(void *arg)
+{
+	t_table	*t;
+	int		i;
+	int		full_count;
+
+	t = (t_table *)arg;
+	while (!get_b(&t->table_mtx, &t->sim_end))
+	{
+		full_count = 0;
+		i = 0;
+		while (i < t->ph_num)
+		{
+			if (get_l(&t->philos[i].p_mx, &t->philos[i].lmeal_t) == 0)
+				set_l(&t->philos[i].p_mx, &t->philos[i].lmeal_t, t->start_t);
+			if ((kill_cond(t, &t->philos[i])))
+			{
+				philo_die(t, &t->philos[i]);
+				return (NULL);
+			}
+			if (get_b(&t->philos[i].p_mx, &t->philos[i].full))
+				full_count++;
+			i++;
+		}
+		check_meal_limit(t, full_count);
+	}
+	return (NULL);
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   ph_stat.c                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/24 04:01:11 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:28:14 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+void	print_status(t_philo_status status, t_philo *philo)
+{
+	long	elapsed;
+	bool	is_full;
+
+	if (end_sim(philo->table) && status != DIED)
+		return ;
+	is_full = get_b(&philo->p_mx, &philo->full);
+	if (is_full && status != DIED)
+		return ;
+	elapsed = gettime() - philo->table->start_t;
+	if (pthread_mutex_lock(&philo->table->write_mtx) != 0)
+		error_exit("Failed to lock write mutex in print_status");
+	if (!end_sim(philo->table) || status == DIED)
+	{
+		if (status == TAKE_FIRST_FORK || status == TAKE_SECOND_FORK)
+			printf("%ld %d has taken a fork\n", elapsed, philo->id);
+		else if (status == EATING)
+			printf("%ld %d is eating\n", elapsed, philo->id);
+		else if (status == SLEEPING)
+			printf("%ld %d is sleeping\n", elapsed, philo->id);
+		else if (status == THINKING)
+			printf("%ld %d is thinking\n", elapsed, philo->id);
+		else if (status == DIED)
+			printf("%ld %d has died\n", elapsed, philo->id);
+	}
+	if (pthread_mutex_unlock(&philo->table->write_mtx) != 0)
+		error_exit("Failed to unlock write mutex in print_status");
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   sim.c                                              :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/19 04:06:55 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:31:15 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+static void	one_ph(t_philo *p)
+{
+	sleep_th(p->table->die_t, p->table);
+	if (pthread_mutex_unlock(&p->first_fork->fork) != 0)
+		error_exit("Failed to unlock first fork");
+	while (!end_sim(p->table))
+		usleep(100);
+	return ;
+}
+
+void	eat(t_philo *p)
+{
+	if (p->id % 2 == 0)
+		usleep(100);
+	if (pthread_mutex_lock(&p->first_fork->fork) != 0)
+		error_exit("Failed to lock first fork");
+	print_status(TAKE_FIRST_FORK, p);
+	if (p->table->ph_num == 1)
+	{
+		one_ph(p);
+		return ;
+	}
+	if (pthread_mutex_lock(&p->second_fork->fork) != 0)
+		error_exit("Failed to lock second fork");
+	print_status(TAKE_SECOND_FORK, p);
+	set_l(&p->p_mx, &p->lmeal_t, gettime());
+	p->meal_count++;
+	print_status(EATING, p);
+	sleep_th(p->table->eat_t, p->table);
+	if (pthread_mutex_unlock(&p->second_fork->fork) != 0)
+		error_exit("Failed to unlock second fork");
+	if (pthread_mutex_unlock(&p->first_fork->fork) != 0)
+		error_exit("Failed to unlock first fork");
+	if (p->table->meal_limit > 0 && p->meal_count == p->table->meal_limit)
+		set_b(&p->p_mx, &p->full, true);
+}
+
+void	*sim(void *arg)
+{
+	t_philo	*philo;
+
+	philo = arg;
+	threads_wait(philo->table);
+	while (!end_sim(philo->table))
+	{
+		if (get_b(&philo->p_mx, &philo->full))
+			break ;
+		if (!end_sim(philo->table))
+			eat(philo);
+		if (!end_sim(philo->table))
+		{
+			print_status(SLEEPING, philo);
+			sleep_th(philo->table->sleep_t, philo->table);
+		}
+		if (!end_sim(philo->table))
+			print_status(THINKING, philo);
+	}
+	return (NULL);
+}
+
+static void time_s(t_table *t)
+{
+	long	start;
+	
+	start = gettime();
+	while (gettime() - start < 1)
+        usleep(10);
+    t->start_t = gettime();
+}
+
+void	start(t_table *t)
+{
+	int			i;
+	pthread_t	manage;
+
+	if (t->meal_limit == 0)
+		return ;
+	i = 0;
+	while (i < t->ph_num)
+	{
+		if (pthread_create(&t->philos[i].th_id, NULL, sim, &t->philos[i]) != 0)
+			error_exit("Failed to create philosopher thread");
+		i++;
+	}
+	time_s(t);
+	set_b(&t->table_mtx, &t->th_ready, true);
+	if (pthread_create(&manage, NULL, manage_dinner, t) != 0)
+		error_exit("Failed to create manage thread");
+	if (pthread_join(manage, NULL) != 0)
+		error_exit("Failed to join manage thread");
+	i = 0;
+	while (i < t->ph_num)
+	{
+		if (pthread_join(t->philos[i].th_id, NULL) != 0)
+			error_exit("Failed to join philosopher thread");
+		i++;
+	}
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   time_err.c                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/17 23:15:31 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:31:44 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+void	error_exit(const char *error)
+{
+	printf("%s\n", error);
+	exit(EXIT_FAILURE);
+}
+
+void	sleep_th(long usec, t_table *table)
+{
+	long	start;
+	long	rem;
+
+	start = gettime();
+	rem = usec / 1000;
+	while (!end_sim(table) && (gettime() - start) < rem)
+		usleep(100);
+}
+
+long	gettime(void)
+{
+	struct timeval	tv;
+
+	if (gettimeofday(&tv, NULL))
+	{
+		error_exit("Getting time failed");
+		return (0);
+	}
+	else
+		return ((tv.tv_sec * 1e3) + (tv.tv_usec / 1e3));
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   wait.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/19 04:32:17 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:31:53 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "philosophers.h"
+
+void	threads_wait(t_table *table)
+{
+	while (!get_b(&table->table_mtx, &table->th_ready) && !end_sim(table))
+		usleep(100);
+}
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   philosophers.h                                     :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/17 22:58:03 by mabou-ha          #+#    #+#             */
+/*   Updated: 2025/05/09 01:27:23 by mabou-ha         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#ifndef PHILOSOPHERS_H
+# define PHILOSOPHERS_H
+
+# include <stdio.h>
+# include <stdlib.h>
+# include <unistd.h>
+# include <stdbool.h>
+# include <pthread.h>
+# include <sys/time.h>
+# include <limits.h>
+# include <errno.h>
+
+typedef enum e_philo_status
+{
+	EATING,
+	SLEEPING,
+	THINKING,
+	TAKE_FIRST_FORK,
+	TAKE_SECOND_FORK,
+	DIED
+}	t_philo_status;
+
+typedef pthread_mutex_t	t_mtx;
+
+typedef struct s_fork
+{
+	t_mtx	fork;
+	int		fork_id;
+}	t_fork;
+
+typedef struct s_table	t_table;
+
+typedef struct s_philo
+{
+	int				id;
+	int				meal_count;
+	bool			full;
+	long			lmeal_t;
+	t_fork			*first_fork;
+	t_fork			*second_fork;
+	pthread_t		th_id;
+	t_mtx			p_mx;
+	struct s_table	*table;
+}	t_philo;
+
+typedef struct s_table
+{
+	long		ph_num;
+	long		die_t;
+	long		eat_t;
+	long		sleep_t;
+	long		meal_limit;
+	long		start_t;
+	long		n_th_running;
+	bool		sim_end;
+	bool		th_ready;
+	pthread_t	monitor;
+	t_mtx		table_mtx;
+	t_mtx		write_mtx;
+	t_fork		*forks;
+	t_philo		*philos;
+}	t_table;
+
+//utils.c
+void	error_exit(const char *error);
+long	gettime(void);
+void	sleep_th(long usec, t_table *table);
+//alloc.c
+void	*philo_malloc(size_t size);
+// init.c
+void	init(t_table *table);
+//parse_nput.c
+void	input_parse(t_table *table, char **av);
+//getters_setters.c
+void	set_b(t_mtx *mutex, bool *dest, bool value);
+bool	get_b(t_mtx *mutex, bool *value);
+void	set_l(t_mtx *mutex, long *dest, long value);
+long	get_l(t_mtx *mutex, long *value);
+bool	end_sim(t_table *table);
+//synchro_utils.c
+void	threads_wait(t_table *table);
+//write.c
+void	print_status(t_philo_status status, t_philo *philo);
+//monitor.c
+void	*manage_dinner(void *table);
+//dinner.c
+void	start(t_table *table);
+#endif
