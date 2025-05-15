@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   init.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mabou-ha <mabou-ha@@student.42.fr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 01:33:08 by mabou-ha          #+#    #+#             */
-/*   Updated: 2025/05/09 01:46:18 by mabou-ha         ###   ########.fr       */
+/*   Updated: 2025/05/15 22:54:11 by mabou-ha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -42,8 +42,7 @@ static void	philo_init(t_table *table)
 		philo->meal_count = 0;
 		philo->lmeal_t = 0;
 		philo->table = table;
-		if (pthread_mutex_init(&philo->p_mx, NULL) != 0)
-			error_exit("Failed to initialize philosopher mutex");
+		init_mutex(&philo->p_mx);
 		assign_forks(philo, table->forks, i);
 		i++;
 	}
@@ -58,15 +57,12 @@ void	init(t_table *table)
 	table->th_ready = false;
 	table->n_th_running = 0;
 	table->philos = philo_malloc(sizeof(t_philo) * table->ph_num);
-	if (pthread_mutex_init(&table->table_mtx, NULL) != 0)
-		error_exit("Failed to initialize table mutex");
-	if (pthread_mutex_init(&table->write_mtx, NULL) != 0)
-		error_exit("Failed to initialize write mutex");
+	init_mutex(&table->table_mtx);
+	init_mutex(&table->write_mtx);
 	table->forks = philo_malloc(sizeof(t_fork) * table->ph_num);
 	while (i < table->ph_num)
 	{
-		if (pthread_mutex_init(&table->forks[i].fork, NULL) != 0)
-			error_exit("Failed to initialize fork mutex");
+		init_mutex(&table->forks[i].fork);
 		i++;
 	}
 	philo_init(table);

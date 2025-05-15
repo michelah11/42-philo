@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   philosophers.h                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mabou-ha <mabou-ha@@student.42.fr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/17 22:58:03 by mabou-ha          #+#    #+#             */
-/*   Updated: 2025/05/09 01:27:23 by mabou-ha         ###   ########.fr       */
+/*   Updated: 2025/05/15 23:37:31 by mabou-ha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -94,7 +94,17 @@ void	threads_wait(t_table *table);
 //write.c
 void	print_status(t_philo_status status, t_philo *philo);
 //monitor.c
+void	philo_die(t_table *table, t_philo *philo);
 void	*manage_dinner(void *table);
 //dinner.c
 void	start(t_table *table);
+//mutex_fct.c
+void	lock_mtx(t_mtx *mtx);
+void	unlock_mtx(t_mtx *mtx);
+void	init_mutex(t_mtx *mtx);
+void	destroy_mutex(t_mtx *mtx);
+//thread_fct.c
+void	create_thread(pthread_t *t, void *(*f) (void *),void *arg);
+void	join_thread (pthread_t t);
+
 #endif

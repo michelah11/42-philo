@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mabou-ha <mabou-ha@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mabou-ha <mabou-ha@@student.42.fr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/17 23:14:35 by mabou-ha          #+#    #+#             */
-/*   Updated: 2025/05/07 04:31:07 by mabou-ha         ###   ########.fr       */
+/*   Updated: 2025/05/15 22:58:33 by mabou-ha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,16 +19,12 @@ static void	terminate_philo(t_table *table)
 	i = 0;
 	while (i < table->ph_num)
 	{
-		if (pthread_mutex_destroy(&table->forks[i].fork) != 0)
-			error_exit("Failed to destroy fork mutex");
-		if (pthread_mutex_destroy(&table->philos[i].p_mx) != 0)
-			error_exit("Failed to destroy philosopher mutex");
+		destroy_mutex(&table->forks[i].fork);
+		destroy_mutex(&table->philos[i].p_mx);
 		i++;
 	}
-	if (pthread_mutex_destroy(&table->table_mtx) != 0)
-		error_exit("Failed to destroy table mutex");
-	if (pthread_mutex_destroy(&table->write_mtx) != 0)
-		error_exit("Failed to destroy write mutex");
+	destroy_mutex(&table->table_mtx);
+	destroy_mutex(&table->write_mtx);
 	free(table->philos);
 	free(table->forks);
 }

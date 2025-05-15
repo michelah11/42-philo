@@ -12,7 +12,9 @@ SRCS = \
 	ph_stat.c \
 	sim.c \
 	time_err.c \
-	wait.c
+	wait.c \
+	mutex_fct.c \
+	thread_fct.c
 
 OBJS = $(SRCS:.c=.o)
 
