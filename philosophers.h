@@ -6,7 +6,7 @@
 /*   By: mabou-ha <mabou-ha@@student.42.fr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/17 22:58:03 by mabou-ha          #+#    #+#             */
-/*   Updated: 2025/05/15 23:37:31 by mabou-ha         ###   ########.fr       */
+/*   Updated: 2025/05/21 23:29:53 by mabou-ha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,6 +32,24 @@ typedef enum e_philo_status
 	DIED
 }	t_philo_status;
 
+typedef enum e_time_code
+{
+	SECOND,
+	MILLISECOND,
+	MICROSECOND
+}	t_time_code;
+
+typedef enum e_code
+{
+	LOCK,
+	UNLOCK,
+	INIT,
+	DESTROY,
+	CREATE,
+	JOIN,
+	DETACH
+}	t_code;
+
 typedef pthread_mutex_t	t_mtx;
 
 typedef struct s_fork
@@ -50,7 +68,7 @@ typedef struct s_philo
 	long			lmeal_t;
 	t_fork			*first_fork;
 	t_fork			*second_fork;
-	pthread_t		th_id;
+	pthread_t		thread_id;
 	t_mtx			p_mx;
 	struct s_table	*table;
 }	t_philo;
@@ -76,11 +94,15 @@ typedef struct s_table
 //utils.c
 void	error_exit(const char *error);
 long	gettime(void);
-void	sleep_th(long usec, t_table *table);
+void	precise_usleep(long usec, t_table *table);
 //alloc.c
 void	*philo_malloc(size_t size);
-// init.c
-void	init(t_table *table);
+//mutex.c
+void	safe_thread_handle(pthread_t *thread, void *(*foo)(void *),
+			void *data, t_code opcode);
+void	safe_mutex_handle(t_mtx *mutex, t_code code);
+// data_init.c
+void	data_init(t_table *table);
 //parse_nput.c
 void	input_parse(t_table *table, char **av);
 //getters_setters.c
@@ -90,21 +112,11 @@ void	set_l(t_mtx *mutex, long *dest, long value);
 long	get_l(t_mtx *mutex, long *value);
 bool	end_sim(t_table *table);
 //synchro_utils.c
-void	threads_wait(t_table *table);
+void	wait_all_threads(t_table *table);
 //write.c
-void	print_status(t_philo_status status, t_philo *philo);
+void	write_status(t_philo_status status, t_philo *philo);
 //monitor.c
-void	philo_die(t_table *table, t_philo *philo);
-void	*manage_dinner(void *table);
+void	*monitor_dinner(void *table);
 //dinner.c
-void	start(t_table *table);
-//mutex_fct.c
-void	lock_mtx(t_mtx *mtx);
-void	unlock_mtx(t_mtx *mtx);
-void	init_mutex(t_mtx *mtx);
-void	destroy_mutex(t_mtx *mtx);
-//thread_fct.c
-void	create_thread(pthread_t *t, void *(*f) (void *),void *arg);
-void	join_thread (pthread_t t);
-
+void	dinner_start(t_table *table);
 #endif

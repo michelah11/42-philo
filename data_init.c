@@ -1,12 +1,12 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   init.c                                             :+:      :+:    :+:   */
+/*   data_init.c                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: mabou-ha <mabou-ha@@student.42.fr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 01:33:08 by mabou-ha          #+#    #+#             */
-/*   Updated: 2025/05/15 22:54:11 by mabou-ha         ###   ########.fr       */
+/*   Updated: 2025/05/21 22:35:49 by mabou-ha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,18 +14,16 @@
 
 static void	assign_forks(t_philo *philo, t_fork *forks, int ph_pos)
 {
-	int right = (ph_pos + 1) % philo->table->ph_num;
-
-    if (ph_pos < right)
-    {
-        philo->first_fork = &forks[ph_pos];
-        philo->second_fork = &forks[right];
-    }
-    else
-    {
-        philo->first_fork = &forks[right];
-        philo->second_fork = &forks[ph_pos];
-    }
+	if (philo->id % 2 == 0)
+	{
+		philo->first_fork = &forks[ph_pos];
+		philo->second_fork = &forks[(ph_pos + 1) % philo->table->ph_num];
+	}
+	else
+	{
+		philo->first_fork = &forks[(ph_pos + 1) % philo->table->ph_num];
+		philo->second_fork = &forks[ph_pos];
+	}
 }
 
 static void	philo_init(t_table *table)
@@ -42,13 +40,13 @@ static void	philo_init(t_table *table)
 		philo->meal_count = 0;
 		philo->lmeal_t = 0;
 		philo->table = table;
-		init_mutex(&philo->p_mx);
+		safe_mutex_handle(&philo->p_mx, INIT);
 		assign_forks(philo, table->forks, i);
 		i++;
 	}
 }
 
-void	init(t_table *table)
+void	data_init(t_table *table)
 {
 	int	i;
 
@@ -57,12 +55,13 @@ void	init(t_table *table)
 	table->th_ready = false;
 	table->n_th_running = 0;
 	table->philos = philo_malloc(sizeof(t_philo) * table->ph_num);
-	init_mutex(&table->table_mtx);
-	init_mutex(&table->write_mtx);
+	safe_mutex_handle(&table->table_mtx, INIT);
+	safe_mutex_handle(&table->write_mtx, INIT);
 	table->forks = philo_malloc(sizeof(t_fork) * table->ph_num);
 	while (i < table->ph_num)
 	{
-		init_mutex(&table->forks[i].fork);
+		safe_mutex_handle(&table->forks[i].fork, INIT);
+		table->forks[i].fork_id = i;
 		i++;
 	}
 	philo_init(table);

@@ -2,19 +2,20 @@ CC = cc -pthread -g
 CFLAGS = -Wall -Wextra -Werror
 NAME = philo
 
-SRCS = \
-	alloc.c \
-	get_set.c \
-	init.c \
-	input.c \
-	main.c \
-	ph_manage.c \
-	ph_stat.c \
-	sim.c \
-	time_err.c \
-	wait.c \
-	mutex_fct.c \
-	thread_fct.c
+SRC_DIR = src
+
+SRCS =	main.c \
+		philo_alloc.c \
+		data_init.c \
+		dinner.c \
+		getters_setters.c \
+		monitor.c \
+		mutex.c \
+		parse_input.c \
+		synchro_utils.c \
+		utils.c \
+		write.c \
+
 
 OBJS = $(SRCS:.c=.o)
 
@@ -35,7 +36,3 @@ fclean: clean
 re: fclean all
 
 .PHONY: all check clean fclean re
-
-helgrind: CFLAGS += -DDEBUG_TIMEOUT
-helgrind: re
-		valgrind --tool=helgrind --log-file=helgrind.out --history-level=approx ./$(NAME) 5 180 180 60 2
